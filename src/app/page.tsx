@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Camera, MapPin, Activity } from 'lucide-react';
 import { useMockDb } from '@/context/MockDb';
+import { motion } from 'framer-motion';
 
 export default function LandingPage() {
   const { role } = useMockDb();
@@ -31,7 +32,12 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-20 flex flex-col items-center text-center">
+      <motion.main 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="max-w-6xl mx-auto px-6 py-20 flex flex-col items-center text-center"
+      >
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 max-w-3xl leading-tight">
           AI Powered <br/><span className="text-violet-600">Municipal Complaint</span> System
         </h1>
@@ -67,13 +73,19 @@ export default function LandingPage() {
             { label: 'Average Resolution Time', value: '3.2 days' },
             { label: 'Active Users', value: '45,291' }
           ].map((stat, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 + (i * 0.1) }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center"
+            >
               <span className="text-4xl font-black text-slate-800 mb-2">{stat.value}</span>
               <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </main>
+      </motion.main>
     </div>
   );
 }
