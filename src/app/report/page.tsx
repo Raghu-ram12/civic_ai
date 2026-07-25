@@ -31,6 +31,7 @@ export default function ReportComplaint() {
     category: '',
     severity: '',
     summary: '',
+    detailedDescription: '',
     department: '',
   });
 
@@ -114,12 +115,13 @@ export default function ReportComplaint() {
       });
       const data = await res.json();
       if (res.ok && data) {
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
           category: data.category || 'Unknown',
           severity: data.severity || 'Medium',
           summary: data.summary || '',
           department: data.department || 'General',
-        });
+        }));
       } else {
         alert('Failed to analyze image.');
       }
@@ -131,27 +133,43 @@ export default function ReportComplaint() {
     }
   };
 
+  const calculateEstimatedTime = (category: string, severity: string) => {
+    const cat = category.toLowerCase();
+    const sev = severity.toLowerCase();
+    if (cat.includes('wire') || cat.includes('electric') || sev === 'critical') {
+      return '24 Hours (Urgent Hazard)';
+    }
+    if (cat.includes('pothole') || cat.includes('road') || sev === 'high') {
+      return '48 Hours';
+    }
+    return '72 Hours';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!image) return alert('Please provide an image first.');
+    const estTime = calculateEstimatedTime(formData.category, formData.severity);
+
     const newComplaint: Complaint = {
       id: 'SC-2026-' + Math.floor(1000 + Math.random() * 9000),
       title: `${formData.category || 'Issue'} Reported`,
-      category: formData.category || 'Unknown',
+      category: formData.category || 'General Civic Issue',
       severity: (formData.severity as any) || 'Medium',
       summary: formData.summary || 'User submitted issue.',
+      detailedDescription: formData.detailedDescription || formData.summary || 'No additional details provided.',
       department: formData.department || 'General',
       status: 'AI Validated',
-      location: location.text || 'Location Unknown',
+      location: location.text || 'Location Captured via GPS',
       lat: location.lat || undefined,
       lng: location.lng || undefined,
       createdAt: new Date().toLocaleString(),
+      estimatedTime: estTime,
       citizen: currentUser ? currentUser.name : 'Citizen User',
       citizenId: currentUser ? currentUser.id : undefined,
       image: image
     };
     addComplaint(newComplaint);
-    alert('Complaint submitted successfully!');
+    alert(`Complaint submitted successfully!\nEstimated Resolution Time: ${estTime}`);
     router.push('/dashboard');
   };
 
@@ -160,14 +178,14 @@ export default function ReportComplaint() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800">Report an Issue</h1>
-          <p className="text-slate-500">Upload a photo and let AI do the rest.</p>
+          <p className="text-slate-500">Upload a photo, describe the problem, and let AI process your report.</p>
         </div>
 
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             
             <div className="space-y-3">
-              <Label>1. Photo Evidence</Label>
+              <Label className="text-base font-bold text-slate-800">1. Photo Evidence</Label>
               {!image && !isCameraOpen && (
                 <div className="grid grid-cols-2 gap-4">
                   <Button type="button" variant="outline" className="h-24 flex flex-col items-center justify-center gap-2" onClick={startCamera}>
@@ -210,37 +228,49 @@ export default function ReportComplaint() {
             {formData.category && !isAnalyzing && (
               <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg space-y-4">
                 <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2">
-                  <CheckCircle2 className="w-5 h-5" /> AI Validated Details
+                  <CheckCircle2 className="w-5 h-5" /> AI Validated Classification
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase">Category</Label>
+                    <Label className="text-emerald-800 text-xs uppercase font-bold">Category</Label>
                     <Input readOnly value={formData.category} className="bg-white" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase">Department</Label>
+                    <Label className="text-emerald-800 text-xs uppercase font-bold">Department</Label>
                     <Input readOnly value={formData.department} className="bg-white" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase">Severity</Label>
+                    <Label className="text-emerald-800 text-xs uppercase font-bold">Severity</Label>
                     <Input readOnly value={formData.severity} className="bg-white" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase">Location</Label>
+                    <Label className="text-emerald-800 text-xs uppercase font-bold">Location</Label>
                     <div className="flex items-center gap-2 bg-white border px-3 py-2 rounded-md h-10 text-sm">
                       <MapPin className="w-4 h-4 text-emerald-600" />
-                      {location.lat !== 0 ? 'Captured' : 'Pending'}
+                      {location.lat !== 0 ? 'Captured via GPS' : 'Pending GPS'}
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-emerald-800 text-xs uppercase">Summary</Label>
+                  <Label className="text-emerald-800 text-xs uppercase font-bold">AI Summary</Label>
                   <Textarea readOnly value={formData.summary} className="bg-white resize-none" />
                 </div>
               </div>
             )}
+
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <Label className="text-base font-bold text-slate-800">2. Detailed Description & Additional Context</Label>
+              <p className="text-xs text-slate-500">Add any additional details (e.g. specific landmarks, exact spot, risk factors, or duration of the problem).</p>
+              <Textarea 
+                rows={4}
+                placeholder="e.g. Electric wire snapped near municipal school gate #2. Posing live hazard to children passing by..."
+                value={formData.detailedDescription}
+                onChange={e => setFormData({ ...formData, detailedDescription: e.target.value })}
+                className="bg-white"
+              />
+            </div>
 
             <Button type="submit" disabled={!image || isAnalyzing} className="w-full h-12 text-lg bg-violet-600 hover:bg-violet-700 text-white font-bold">
               Submit Complaint

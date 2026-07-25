@@ -83,6 +83,15 @@ function TrackContent() {
                 <p className="text-lg font-semibold text-slate-800">{result.category}</p>
               </div>
               <div>
+                <Label className="text-xs text-slate-400 uppercase font-bold">Estimated Resolution Time</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-extrabold bg-amber-50 text-amber-800 border border-amber-200 shadow-xs">
+                    <Clock className="w-4 h-4 text-amber-600 animate-spin-slow" />
+                    {result.estimatedTime || (result.severity === 'Critical' ? '24 Hours (Urgent Hazard)' : result.severity === 'High' ? '48 Hours' : '72 Hours')}
+                  </span>
+                </div>
+              </div>
+              <div>
                 <Label className="text-xs text-slate-400 uppercase font-bold">Department</Label>
                 <p className="text-lg font-semibold text-slate-800">{result.department}</p>
               </div>
@@ -93,10 +102,15 @@ function TrackContent() {
                 </p>
               </div>
               <div>
-                <Label className="text-xs text-slate-400 uppercase font-bold">Summary</Label>
-                <p className="text-md text-slate-700 bg-slate-50 p-4 rounded-lg mt-1 border border-slate-100">
-                  {result.summary}
-                </p>
+                <Label className="text-xs text-slate-400 uppercase font-bold">Issue Summary & Description</Label>
+                <div className="bg-slate-50 p-4 rounded-lg mt-1 border border-slate-100 space-y-2">
+                  <p className="text-md font-semibold text-slate-800">{result.summary}</p>
+                  {result.detailedDescription && (
+                    <p className="text-sm text-slate-600 border-t border-slate-200 pt-2 font-normal">
+                      <b>Additional Details:</b> {result.detailedDescription}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             

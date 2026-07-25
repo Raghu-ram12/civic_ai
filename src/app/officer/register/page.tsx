@@ -92,21 +92,27 @@ export default function OfficerRegister() {
               <div className="space-y-2">
                 <Label>Department</Label>
                 <select 
-                  className="flex h-12 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-12 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 font-medium"
                   value={formData.department}
                   onChange={e => setFormData({...formData, department: e.target.value})}
                 >
-                  <option>Roads & Infrastructure</option>
-                  <option>Electrical</option>
-                  <option>Water & Sanitation</option>
-                  <option>General</option>
+                  <option>Roads & Traffic Infrastructure</option>
+                  <option>Electrical & Power Services</option>
+                  <option>Water Supply & Drainage</option>
+                  <option>Sanitation & Waste Management</option>
+                  <option>Public Health & Disease Control</option>
+                  <option>Parks & Horticulture</option>
+                  <option>Building Enforcement & Planning</option>
+                  <option>Fire & Emergency Hazards</option>
+                  <option>General Municipal Services</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Badge Number</Label>
+                <Label>Ward Number / Sector</Label>
                 <Input 
                   type="text" 
                   required
+                  placeholder="e.g. Ward 12"
                   className="h-12" 
                   value={formData.badgeNumber}
                   onChange={e => setFormData({...formData, badgeNumber: e.target.value})}

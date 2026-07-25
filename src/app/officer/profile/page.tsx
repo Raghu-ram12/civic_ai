@@ -20,6 +20,10 @@ export default function OfficerProfile() {
     name: '',
     department: '',
     badgeNumber: '',
+    wardNumber: '',
+    cityOrVillage: '',
+    state: '',
+    pincode: '',
   });
 
   useEffect(() => {
@@ -30,6 +34,10 @@ export default function OfficerProfile() {
         name: currentUser.name || '',
         department: currentUser.department || 'General',
         badgeNumber: currentUser.badgeNumber || '',
+        wardNumber: currentUser.wardNumber || '',
+        cityOrVillage: currentUser.cityOrVillage || '',
+        state: currentUser.state || '',
+        pincode: currentUser.pincode || '',
       });
     }
   }, [role, currentUser, router]);
@@ -44,7 +52,11 @@ export default function OfficerProfile() {
       updateProfile({ 
         name: formData.name, 
         department: formData.department,
-        badgeNumber: formData.badgeNumber
+        badgeNumber: formData.badgeNumber,
+        wardNumber: formData.wardNumber,
+        cityOrVillage: formData.cityOrVillage,
+        state: formData.state,
+        pincode: formData.pincode,
       });
       setSuccess(true);
       setLoading(false);
@@ -82,6 +94,7 @@ export default function OfficerProfile() {
           {success && <div className="bg-emerald-50 text-emerald-700 p-4 rounded-lg font-bold mb-6">Profile updated successfully!</div>}
           
           <form onSubmit={handleSubmit} className="space-y-6">
+            <h2 className="text-lg font-bold text-slate-800 border-b pb-2">Official Credentials</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Official Email</Label>
@@ -100,27 +113,78 @@ export default function OfficerProfile() {
               <div className="space-y-2">
                 <Label>Department</Label>
                 <select 
-                  className="flex h-12 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-12 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 font-medium"
                   value={formData.department}
                   onChange={e => setFormData({...formData, department: e.target.value})}
                 >
-                  <option>Roads & Infrastructure</option>
-                  <option>Electrical</option>
-                  <option>Water & Sanitation</option>
-                  <option>General</option>
+                  <option>Roads & Traffic Infrastructure</option>
+                  <option>Electrical & Power Services</option>
+                  <option>Water Supply & Drainage</option>
+                  <option>Sanitation & Waste Management</option>
+                  <option>Public Health & Disease Control</option>
+                  <option>Parks & Horticulture</option>
+                  <option>Building Enforcement & Planning</option>
+                  <option>Fire & Emergency Hazards</option>
+                  <option>General Municipal Services</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Badge Number</Label>
+                <Label>Official Ward Number / Sector</Label>
                 <Input 
                   type="text" 
                   required
-                  value={formData.badgeNumber} 
-                  onChange={e => setFormData({...formData, badgeNumber: e.target.value})} 
+                  placeholder="e.g. Ward 12 - Central Zone"
+                  value={formData.wardNumber || formData.badgeNumber} 
+                  onChange={e => setFormData({...formData, wardNumber: e.target.value, badgeNumber: e.target.value})} 
                   className="h-12" 
                 />
               </div>
             </div>
+
+            <h2 className="text-lg font-bold text-slate-800 border-b pb-2 pt-4">Jurisdiction & Location</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Ward Number / Sector</Label>
+                <Input 
+                  type="text" 
+                  placeholder="e.g. Ward 12 - Central Zone"
+                  value={formData.wardNumber} 
+                  onChange={e => setFormData({...formData, wardNumber: e.target.value})} 
+                  className="h-12" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>City or Village</Label>
+                <Input 
+                  type="text" 
+                  placeholder="e.g. Bangalore"
+                  value={formData.cityOrVillage} 
+                  onChange={e => setFormData({...formData, cityOrVillage: e.target.value})} 
+                  className="h-12" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Input 
+                  type="text" 
+                  placeholder="e.g. Karnataka"
+                  value={formData.state} 
+                  onChange={e => setFormData({...formData, state: e.target.value})} 
+                  className="h-12" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Pincode</Label>
+                <Input 
+                  type="text" 
+                  placeholder="e.g. 560001"
+                  value={formData.pincode} 
+                  onChange={e => setFormData({...formData, pincode: e.target.value})} 
+                  className="h-12" 
+                />
+              </div>
+            </div>
+
             <div className="pt-4 border-t border-slate-100 flex justify-end">
               <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 h-12 px-8 text-lg">
                 <Save className="w-5 h-5 mr-2" /> {loading ? 'Saving...' : 'Save Profile'}

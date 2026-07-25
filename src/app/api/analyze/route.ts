@@ -15,10 +15,10 @@ export async function POST(request: Request) {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `Analyze this civic issue image and return a JSON object with the following fields:
-    - category (String: Pothole, Garbage, Water Leakage, Broken Street Light, Drainage Blockage, Tree Fallen, or Other)
+    - category (String: Broken Live Electric Wire, Deep Pothole / Damaged Road, Open Manhole / Missing Cover, Uncollected Garbage & Illegal Dumping, Streetlight Outage / Dark Alley, Sewerage Overflow / Pipeline Leakage, Fallen Tree / Danger Branch, Waterlogging & Mosquito Breeding, Traffic Signal Fault, Footpath Encroachment, Fire & Emergency Hazard, or Other)
     - severity (String: Low, Medium, High, Critical)
     - summary (String: One-line short description of the issue)
-    - department (String: Roads & Infrastructure, Sanitation, Water Works, Electrical, Parks & Horticulture)
+    - department (String: Electrical & Power Services, Roads & Traffic Infrastructure, Water Supply & Drainage, Sanitation & Waste Management, Public Health & Disease Control, Parks & Horticulture, Building Enforcement & Planning, Fire & Emergency Hazards, General Municipal Services)
     - confidence (Number: 0-100)
     
     Only return raw JSON format without markdown ticks or other text.`;
