@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -12,12 +12,21 @@ import { useMockDb, Complaint } from '@/context/MockDb';
 
 export default function ReportComplaint() {
   const router = useRouter();
-  const { addComplaint } = useMockDb();
+  const { addComplaint, role } = useMockDb();
+  
+  useEffect(() => {
+    if (role !== 'citizen') {
+      router.push('/login');
+    }
+  }, [role, router]);
+
   const [image, setImage] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [location, setLocation] = useState({ lat: 0, lng: 0, text: '' });
   
+  if (role !== 'citizen') return null;
+
   const [formData, setFormData] = useState({
     category: '',
     severity: '',

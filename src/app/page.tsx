@@ -1,8 +1,13 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Camera, MapPin, Activity } from 'lucide-react';
+import { useMockDb } from '@/context/MockDb';
 
 export default function LandingPage() {
+  const { role } = useMockDb();
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       <header className="flex items-center justify-between px-8 py-6 bg-white border-b border-slate-200">
@@ -35,11 +40,19 @@ export default function LandingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-20">
-          <Link href="/report">
-            <Button size="lg" className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-lg px-8 py-6 shadow-lg shadow-violet-200 rounded-xl flex items-center gap-2">
-              <Camera className="w-5 h-5" /> Report Complaint
-            </Button>
-          </Link>
+          {role === 'citizen' ? (
+            <Link href="/report">
+              <Button size="lg" className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-lg px-8 py-6 shadow-lg shadow-violet-200 rounded-xl flex items-center gap-2">
+                <Camera className="w-5 h-5" /> Report Complaint
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button size="lg" className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-lg px-8 py-6 shadow-lg shadow-violet-200 rounded-xl flex items-center gap-2">
+                <Camera className="w-5 h-5" /> Login to Report
+              </Button>
+            </Link>
+          )}
           <Link href="/track">
             <Button size="lg" variant="outline" className="bg-white border-slate-300 text-slate-700 font-bold text-lg px-8 py-6 shadow-sm rounded-xl flex items-center gap-2">
               <MapPin className="w-5 h-5" /> Track Complaint
