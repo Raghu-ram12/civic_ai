@@ -9,17 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { ShieldCheck, Save, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { useToast } from '@/context/ToastContext';
 
 export default function OfficerProfile() {
   const router = useRouter();
   const { currentUser, role, updateProfile, logout } = useMockDb();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     department: '',
-    badgeNumber: '',
     wardNumber: '',
     cityOrVillage: '',
     state: '',
@@ -28,12 +29,11 @@ export default function OfficerProfile() {
 
   useEffect(() => {
     if (role !== 'officer' || !currentUser) {
-      router.push('/officer/login');
+      router.push('/');
     } else {
       setFormData({
         name: currentUser.name || '',
         department: currentUser.department || 'General',
-        badgeNumber: currentUser.badgeNumber || '',
         wardNumber: currentUser.wardNumber || '',
         cityOrVillage: currentUser.cityOrVillage || '',
         state: currentUser.state || '',
@@ -47,18 +47,16 @@ export default function OfficerProfile() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setSuccess(false);
     setTimeout(() => {
       updateProfile({ 
         name: formData.name, 
         department: formData.department,
-        badgeNumber: formData.badgeNumber,
         wardNumber: formData.wardNumber,
         cityOrVillage: formData.cityOrVillage,
         state: formData.state,
-        pincode: formData.pincode,
+        pincode: formData.pincode
       });
-      setSuccess(true);
+      toast('Profile updated successfully!', 'success');
       setLoading(false);
     }, 800);
   };
@@ -69,130 +67,113 @@ export default function OfficerProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-6">
-      <div className="max-w-3xl mx-auto space-y-8">
-        
-        <header className="flex justify-between items-center bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+    <div className="min-h-screen text-white font-sans p-6 relative overflow-hidden">
+      <div className="absolute top-1/4 -right-1/4 w-[600px] h-[600px] bg-white/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-3xl mx-auto space-y-8 relative z-10"
+      >
+        <header className="glass flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-6 rounded-3xl border-white/20 shadow-xl">
           <div className="flex items-center gap-4">
-            <div className="bg-emerald-100 p-3 rounded-xl"><ShieldCheck className="w-8 h-8 text-emerald-700" /></div>
+            <div className="bg-white/20 p-3 rounded-2xl ring-1 ring-white/30 backdrop-blur-sm"><ShieldCheck className="w-8 h-8 text-white drop-shadow-md" /></div>
             <div>
-              <p className="text-sm font-bold tracking-wider text-emerald-600 uppercase">Official Account</p>
-              <h1 className="text-2xl font-extrabold text-slate-800">Officer Profile</h1>
+              <p className="text-sm font-bold tracking-widest text-white/70 uppercase">Official Account</p>
+              <h1 className="text-3xl font-extrabold drop-shadow-md">Officer Profile</h1>
             </div>
           </div>
           <div className="flex gap-4">
-            <Link href="/officer/dashboard">
-              <Button variant="outline" className="font-bold text-slate-600">Back to Dashboard</Button>
-            </Link>
-            <Button variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" /> Sign Out
-            </Button>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button onClick={() => router.push('/officer/dashboard')} variant="outline" className="glass bg-white/10 hover:bg-white/20 border-white/30 font-bold transition-all shadow-md">Back to Dashboard</Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button variant="ghost" className="glass bg-red-500/20 border-red-500/30 text-white hover:bg-red-500/40 hover:text-white transition-all shadow-md" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 mr-2" /> Sign Out
+              </Button>
+            </motion.div>
           </div>
         </header>
 
-        <Card className="p-8">
-          {success && <div className="bg-emerald-50 text-emerald-700 p-4 rounded-lg font-bold mb-6">Profile updated successfully!</div>}
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <h2 className="text-lg font-bold text-slate-800 border-b pb-2">Official Credentials</h2>
+        <Card className="glass p-8 border-white/20 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Official Email</Label>
-                <Input type="email" disabled value={currentUser.email} className="bg-slate-50 text-slate-500 h-12" />
+              <div className="space-y-3">
+                <Label className="text-white/70 uppercase font-bold tracking-widest text-xs">Official Email</Label>
+                <Input type="email" disabled value={currentUser.email} className="bg-white/5 border-white/10 text-white/50 h-14" />
               </div>
-              <div className="space-y-2">
-                <Label>Full Name</Label>
+              <div className="space-y-3">
+                <Label className="text-white/90 uppercase font-bold tracking-widest text-xs drop-shadow-sm">Full Name</Label>
                 <Input 
                   type="text" 
                   required 
                   value={formData.name} 
                   onChange={e => setFormData({...formData, name: e.target.value})} 
-                  className="h-12" 
+                  className="h-14 bg-black/20 border-white/20 text-white focus-visible:ring-white/50 transition-all" 
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Department</Label>
+              <div className="space-y-3">
+                <Label className="text-white/90 uppercase font-bold tracking-widest text-xs drop-shadow-sm">Department</Label>
                 <select 
-                  className="flex h-12 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 font-medium"
+                  className="flex h-14 w-full rounded-md border border-white/20 bg-black/20 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                   value={formData.department}
                   onChange={e => setFormData({...formData, department: e.target.value})}
                 >
-                  <option>Roads & Traffic Infrastructure</option>
-                  <option>Electrical & Power Services</option>
-                  <option>Water Supply & Drainage</option>
-                  <option>Sanitation & Waste Management</option>
-                  <option>Public Health & Disease Control</option>
-                  <option>Parks & Horticulture</option>
-                  <option>Building Enforcement & Planning</option>
-                  <option>Fire & Emergency Hazards</option>
-                  <option>General Municipal Services</option>
+                  <option className="bg-slate-800">Roads & Infrastructure</option>
+                  <option className="bg-slate-800">Electrical</option>
+                  <option className="bg-slate-800">Water & Sanitation</option>
+                  <option className="bg-slate-800">General</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <Label>Official Ward Number / Sector</Label>
+              <div className="space-y-3">
+                <Label className="text-white/90 uppercase font-bold tracking-widest text-xs drop-shadow-sm">Ward Number</Label>
                 <Input 
                   type="text" 
                   required
-                  placeholder="e.g. Ward 12 - Central Zone"
-                  value={formData.wardNumber || formData.badgeNumber} 
-                  onChange={e => setFormData({...formData, wardNumber: e.target.value, badgeNumber: e.target.value})} 
-                  className="h-12" 
-                />
-              </div>
-            </div>
-
-            <h2 className="text-lg font-bold text-slate-800 border-b pb-2 pt-4">Jurisdiction & Location</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Ward Number / Sector</Label>
-                <Input 
-                  type="text" 
-                  placeholder="e.g. Ward 12 - Central Zone"
                   value={formData.wardNumber} 
                   onChange={e => setFormData({...formData, wardNumber: e.target.value})} 
-                  className="h-12" 
+                  className="h-14 bg-black/20 border-white/20 text-white focus-visible:ring-white/50 transition-all" 
                 />
               </div>
-              <div className="space-y-2">
-                <Label>City or Village</Label>
+              <div className="space-y-3">
+                <Label className="text-white/90 uppercase font-bold tracking-widest text-xs drop-shadow-sm">City / Village</Label>
                 <Input 
                   type="text" 
-                  placeholder="e.g. Bangalore"
                   value={formData.cityOrVillage} 
                   onChange={e => setFormData({...formData, cityOrVillage: e.target.value})} 
-                  className="h-12" 
+                  className="h-14 bg-black/20 border-white/20 text-white focus-visible:ring-white/50 transition-all" 
                 />
               </div>
-              <div className="space-y-2">
-                <Label>State</Label>
+              <div className="space-y-3">
+                <Label className="text-white/90 uppercase font-bold tracking-widest text-xs drop-shadow-sm">State</Label>
                 <Input 
                   type="text" 
-                  placeholder="e.g. Karnataka"
                   value={formData.state} 
                   onChange={e => setFormData({...formData, state: e.target.value})} 
-                  className="h-12" 
+                  className="h-14 bg-black/20 border-white/20 text-white focus-visible:ring-white/50 transition-all" 
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Pincode</Label>
+              <div className="space-y-3">
+                <Label className="text-white/90 uppercase font-bold tracking-widest text-xs drop-shadow-sm">Pincode</Label>
                 <Input 
                   type="text" 
-                  placeholder="e.g. 560001"
                   value={formData.pincode} 
                   onChange={e => setFormData({...formData, pincode: e.target.value})} 
-                  className="h-12" 
+                  className="h-14 bg-black/20 border-white/20 text-white focus-visible:ring-white/50 transition-all" 
                 />
               </div>
             </div>
-
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
-              <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 h-12 px-8 text-lg">
-                <Save className="w-5 h-5 mr-2" /> {loading ? 'Saving...' : 'Save Profile'}
-              </Button>
+            <div className="pt-6 border-t border-white/10 flex justify-end">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button type="submit" disabled={loading} className="bg-white text-emerald-900 font-extrabold shadow-xl rounded-xl h-14 px-10 text-lg">
+                  <Save className="w-5 h-5 mr-2" /> {loading ? 'Saving...' : 'Save Profile'}
+                </Button>
+              </motion.div>
             </div>
           </form>
         </Card>
-      </div>
+      </motion.div>
     </div>
   );
 }

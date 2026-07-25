@@ -1,26 +1,10 @@
-'use client';
+const fs = require('fs');
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
-import { useMockDb } from '@/context/MockDb';
-import { Activity, User, Eye, EyeOff } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useToast } from '@/context/ToastContext';
-
-export default function Login() {
-  const router = useRouter();
-  const { login } = useMockDb();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
+function rewriteLogin(filePath, role) {
+  let content = fs.readFileSync(filePath, 'utf8');
+  
+  // Add states
+  const stateInsert = `
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetStep, setResetStep] = useState(1);
   const [resetEmail, setResetEmail] = useState('');
@@ -29,10 +13,12 @@ export default function Login() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const { resetPassword } = useMockDb();
+`;
+  content = content.replace('const [password, setPassword] = useState(\'\');', 'const [password, setPassword] = useState(\'\');\n' + stateInsert);
 
-
-  
-  const handleSendOtp = (e: React.FormEvent) => {
+  // Add handlers
+  const handlersInsert = `
+  const handleSendOtp = (e) => {
     e.preventDefault();
     if (!resetEmail) return;
     setLoading(true);
@@ -44,7 +30,7 @@ export default function Login() {
     }, 800);
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = (e) => {
     e.preventDefault();
     if (otpCode === sentOtp || otpCode === '123456') {
       setResetStep(3);
@@ -53,7 +39,7 @@ export default function Login() {
     }
   };
 
-  const handleSaveNewPassword = (e: React.FormEvent) => {
+  const handleSaveNewPassword = (e) => {
     e.preventDefault();
     if (newPassword.length < 4) {
       toast('Password must be at least 4 characters long.', 'error');
@@ -65,7 +51,7 @@ export default function Login() {
     }
     setLoading(true);
     setTimeout(() => {
-      resetPassword(resetEmail, newPassword, 'citizen');
+      resetPassword(resetEmail, newPassword, '${role}');
       toast('Password reset successfully! You can now sign in.', 'success');
       setIsResetMode(false);
       setResetStep(1);
@@ -74,48 +60,18 @@ export default function Login() {
       setLoading(false);
     }, 800);
   };
+`;
+  content = content.replace('const handleLogin = (e: React.FormEvent) => {', handlersInsert + '\n  const handleLogin = (e: React.FormEvent) => {');
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      const success = login(email, password, 'citizen');
-      if (success) {
-        toast(`Welcome back, citizen!`, 'success');
-        router.push('/dashboard');
-      } else {
-        toast('Invalid email or password. Wrong password? Click "Forgot Password" below.', 'error');
-        setLoading(false);
-      }
-    }, 1000);
-  };
+  // Update handleLogin to trigger reset flow on failure
+  content = content.replace(
+    /toast\('Invalid email or password.', 'error'\);\s*setLoading\(false\);|setError\('Invalid official email or password.'\);\s*setLoading\(false\);/,
+    `toast('Invalid email or password. Wrong password? Click "Forgot Password" below.', 'error');
+        setLoading(false);`
+  );
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white/10 rounded-full blur-[150px] -z-10 pointer-events-none" />
-      
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md space-y-6"
-      >
-        <Link href="/" className="text-sm font-bold text-white/80 hover:text-white flex items-center gap-2 drop-shadow-md">
-          &larr; Back to Home
-        </Link>
-        
-        <Card className="glass w-full p-8 border-white/20 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-white/20 rounded-full blur-3xl" />
-          
-          <div className="flex flex-col items-center mb-8 relative z-10">
-            <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 3 }} className="bg-white/10 p-3 rounded-xl mb-4 shadow-lg shadow-black/5 ring-1 ring-white/20">
-              <User className="text-white w-8 h-8" />
-            </motion.div>
-            <h2 className="text-3xl font-extrabold text-white drop-shadow-md">Citizen Login</h2>
-            <p className="text-white/80 text-sm mt-1 font-medium">Sign in to your account</p>
-          </div>
-
-          
+  // Update JSX to render reset form conditionally
+  const resetJsx = `
           {!isResetMode ? (
             <form onSubmit={handleLogin} className="space-y-5 relative z-10">
               <div className="space-y-2">
@@ -126,36 +82,27 @@ export default function Login() {
                   value={email} 
                   onChange={e => setEmail(e.target.value)} 
                   className="h-12 bg-black/10 border-white/20 text-white placeholder:text-white/50 focus:ring-white/50 focus:border-white/50 transition-all" 
-                  placeholder="citizen@example.com" 
+                  placeholder="${role === 'officer' ? 'officer@smartcivic.gov' : 'citizen@example.com'}" 
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-white/90 font-semibold drop-shadow-sm">Password</Label>
-                <div className="relative">
-                  <Input 
-                    type={showPassword ? 'text' : 'password'} 
-                    required 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    className="h-12 bg-black/10 border-white/20 text-white focus:ring-white/50 focus:border-white/50 transition-all pr-12" 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                <div className="flex justify-end pt-1">
+                <div className="flex justify-between items-center">
+                  <Label className="text-white/90 font-semibold drop-shadow-sm">Password</Label>
                   <button 
                     type="button" 
                     onClick={() => { setIsResetMode(true); setResetEmail(email); }}
-                    className="text-sm font-black text-blue-300 hover:text-blue-100 hover:underline drop-shadow-lg transition-colors flex items-center gap-1"
+                    className="text-xs font-bold text-white hover:underline drop-shadow-md"
                   >
                     Forgot Password?
                   </button>
                 </div>
+                <Input 
+                  type="password" 
+                  required 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  className="h-12 bg-black/10 border-white/20 text-white focus:ring-white/50 focus:border-white/50 transition-all" 
+                />
               </div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button type="submit" disabled={loading} className="w-full h-12 text-lg font-bold bg-white text-violet-900 shadow-xl">
@@ -225,13 +172,14 @@ export default function Login() {
               </button>
             </div>
           )}
+`;
+  
+  // Replace the existing form block
+  const formRegex = /<form onSubmit=\{handleLogin\}[\s\S]*?<\/form>/;
+  content = content.replace(formRegex, resetJsx);
 
-
-          <div className="mt-6 text-center text-sm text-white/80 font-medium relative z-10">
-            Don't have an account? <Link href="/register" className="font-bold text-white hover:underline hover:text-white/90 drop-shadow-md">Sign up</Link>
-          </div>
-        </Card>
-      </motion.div>
-    </div>
-  );
+  fs.writeFileSync(filePath, content, 'utf8');
 }
+
+rewriteLogin('src/app/login/page.tsx', 'citizen');
+rewriteLogin('src/app/officer/login/page.tsx', 'officer');

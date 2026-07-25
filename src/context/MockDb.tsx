@@ -42,6 +42,8 @@ export type Complaint = {
   citizenId?: string;
   image?: string;
   note?: string;
+  spam?: boolean;
+  duplicateCount?: number;
 };
 
 export const defaultOfficers: User[] = [
@@ -49,6 +51,7 @@ export const defaultOfficers: User[] = [
     id: 'off-12-elec',
     name: 'Inspector Vikram Kulkarni',
     email: 'officer.electrical@smartcivic.gov',
+    password: 'electric123',
     role: 'officer',
     department: 'Electrical & Power Services',
     wardNumber: 'Ward 12',
@@ -59,6 +62,7 @@ export const defaultOfficers: User[] = [
     id: 'off-12-road',
     name: 'Engineer Rajesh Sharma',
     email: 'officer.roads@smartcivic.gov',
+    password: 'roads123',
     role: 'officer',
     department: 'Roads & Traffic Infrastructure',
     wardNumber: 'Ward 12',
@@ -69,6 +73,7 @@ export const defaultOfficers: User[] = [
     id: 'off-8-water',
     name: 'Officer Priya Nambiar',
     email: 'officer.water@smartcivic.gov',
+    password: 'water123',
     role: 'officer',
     department: 'Water Supply & Drainage',
     wardNumber: 'Ward 8',
@@ -79,6 +84,7 @@ export const defaultOfficers: User[] = [
     id: 'off-4-sani',
     name: 'Superintendent Ramesh Kumar',
     email: 'officer.sanitation@smartcivic.gov',
+    password: 'sanitation123',
     role: 'officer',
     department: 'Sanitation & Waste Management',
     wardNumber: 'Ward 4',
@@ -89,6 +95,7 @@ export const defaultOfficers: User[] = [
     id: 'off-2-health',
     name: 'Dr. Sunita Deshmukh',
     email: 'officer.health@smartcivic.gov',
+    password: 'health123',
     role: 'officer',
     department: 'Public Health & Disease Control',
     wardNumber: 'Ward 2',
@@ -231,7 +238,7 @@ const MockDbContext = createContext<MockDbContextType | undefined>(undefined);
 
 export function MockDbProvider({ children }: { children: React.ReactNode }) {
   const [complaints, setComplaints] = useState<Complaint[]>(seedData);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>(defaultOfficers);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Initialize from LocalStorage
@@ -243,7 +250,13 @@ export function MockDbProvider({ children }: { children: React.ReactNode }) {
     
     const savedUsers = localStorage.getItem('smartcivic-users');
     if (savedUsers) {
-      try { setUsers(JSON.parse(savedUsers)); } catch (e) {}
+      try {
+        const parsed: User[] = JSON.parse(savedUsers);
+        // Merge: keep saved non-default users, always use defaultOfficers for their IDs
+        const defaultIds = new Set(defaultOfficers.map(o => o.id));
+        const nonDefaults = parsed.filter(u => !defaultIds.has(u.id));
+        setUsers([...defaultOfficers, ...nonDefaults]);
+      } catch (e) {}
     }
     
     const savedCurrentUser = localStorage.getItem('smartcivic-current-user');

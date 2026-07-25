@@ -9,21 +9,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Camera, Upload, MapPin, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMockDb, Complaint } from '@/context/MockDb';
+import { useToast } from '@/context/ToastContext';
+import { motion } from 'framer-motion';
 
 export default function ReportComplaint() {
   const router = useRouter();
-  const { addComplaint, role, currentUser } = useMockDb();
+  const { addComplaint, role, currentUser, complaints, updateComplaint } = useMockDb();
+  const { toast } = useToast();
   
   useEffect(() => {
     if (role !== 'citizen') {
-      router.push('/login');
+      router.push('/');
     }
   }, [role, router]);
 
   const [image, setImage] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [location, setLocation] = useState({ lat: 0, lng: 0, text: '' });
+  const [location, setLocation] = useState({ lat: 0, lng: 0, text: '', wardNumber: '', locality: '' });
   
   if (role !== 'citizen') return null;
 
@@ -31,8 +34,8 @@ export default function ReportComplaint() {
     category: '',
     severity: '',
     summary: '',
-    detailedDescription: '',
     department: '',
+    description: '',
   });
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -49,7 +52,7 @@ export default function ReportComplaint() {
         }
       }, 100);
     } catch (err) {
-      alert('Camera permission denied or not available.');
+      toast('Camera permission denied or not available.', 'error');
     }
   };
 
@@ -92,14 +95,19 @@ export default function ReportComplaint() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          // Mocking reverse geocoding for demonstration
+          const mockWard = currentUser?.wardNumber || 'Ward 12';
+          const mockLocality = currentUser?.locality || 'MG Road Sector';
           setLocation({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-            text: `GPS Location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
+            text: `${mockLocality}, ${mockWard} (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`,
+            wardNumber: mockWard,
+            locality: mockLocality,
           });
         },
         () => {
-          setLocation({ lat: 0, lng: 0, text: 'Location access denied.' });
+          setLocation({ lat: 0, lng: 0, text: 'Location access denied.', wardNumber: '', locality: '' });
         }
       );
     }
@@ -116,168 +124,176 @@ export default function ReportComplaint() {
       const data = await res.json();
       if (res.ok && data) {
         setFormData(prev => ({
-          ...prev,
           category: data.category || 'Unknown',
           severity: data.severity || 'Medium',
           summary: data.summary || '',
           department: data.department || 'General',
+          // Pre-fill description from AI summary only if user hasn't typed anything
+          description: prev.description || data.summary || '',
         }));
+        toast('AI Analysis complete!', 'success');
       } else {
-        alert('Failed to analyze image.');
+        toast('Failed to analyze image.', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error analyzing image.');
+      toast('Error analyzing image.', 'error');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const calculateEstimatedTime = (category: string, severity: string) => {
-    const cat = category.toLowerCase();
-    const sev = severity.toLowerCase();
-    if (cat.includes('wire') || cat.includes('electric') || sev === 'critical') {
-      return '24 Hours (Urgent Hazard)';
-    }
-    if (cat.includes('pothole') || cat.includes('road') || sev === 'high') {
-      return '48 Hours';
-    }
-    return '72 Hours';
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!image) return alert('Please provide an image first.');
-    const estTime = calculateEstimatedTime(formData.category, formData.severity);
-
+    if (!image) return toast('Please provide an image first.', 'error');
     const newComplaint: Complaint = {
       id: 'SC-2026-' + Math.floor(1000 + Math.random() * 9000),
       title: `${formData.category || 'Issue'} Reported`,
-      category: formData.category || 'General Civic Issue',
+      category: formData.category || 'Unknown',
       severity: (formData.severity as any) || 'Medium',
-      summary: formData.summary || 'User submitted issue.',
-      detailedDescription: formData.detailedDescription || formData.summary || 'No additional details provided.',
+      summary: formData.summary || formData.description || 'User submitted issue.',
+      detailedDescription: formData.description || undefined,
       department: formData.department || 'General',
       status: 'AI Validated',
-      location: location.text || 'Location Captured via GPS',
+      location: location.text || 'Location Unknown',
       lat: location.lat || undefined,
       lng: location.lng || undefined,
       createdAt: new Date().toLocaleString(),
-      estimatedTime: estTime,
       citizen: currentUser ? currentUser.name : 'Citizen User',
       citizenId: currentUser ? currentUser.id : undefined,
       image: image
     };
     addComplaint(newComplaint);
-    alert(`Complaint submitted successfully!\nEstimated Resolution Time: ${estTime}`);
+    toast('Complaint submitted successfully!', 'success');
     router.push('/dashboard');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 font-sans">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-800">Report an Issue</h1>
-          <p className="text-slate-500">Upload a photo, describe the problem, and let AI process your report.</p>
+    <div className="min-h-screen text-white py-10 px-4 font-sans relative overflow-hidden">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-white/10 rounded-full blur-[150px] -z-10 pointer-events-none" />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-2xl mx-auto space-y-8 relative z-10"
+      >
+        <div className="text-center md:text-left glass p-8 rounded-3xl border-white/20 shadow-xl">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white drop-shadow-md mb-2">Report an Issue</h1>
+          <p className="text-white/80 font-medium">Upload a photo and let AI do the rest.</p>
         </div>
 
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="glass p-6 md:p-8 border-white/20 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-8">
             
-            <div className="space-y-3">
-              <Label className="text-base font-bold text-slate-800">1. Photo Evidence</Label>
+            <div className="space-y-4">
+              <Label className="text-white/90 text-lg font-bold drop-shadow-sm flex items-center gap-2">
+                <span className="bg-white/20 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span> 
+                Photo Evidence
+              </Label>
               {!image && !isCameraOpen && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Button type="button" variant="outline" className="h-24 flex flex-col items-center justify-center gap-2" onClick={startCamera}>
-                    <Camera className="w-6 h-6 text-violet-600" />
-                    <span>Take Photo</span>
-                  </Button>
-                  <Label className="h-24 flex flex-col items-center justify-center gap-2 border rounded-md cursor-pointer hover:bg-slate-50">
-                    <Upload className="w-6 h-6 text-violet-600" />
-                    <span>Upload Photo</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button type="button" variant="outline" className="w-full h-32 glass border-white/30 text-white shadow-md flex flex-col items-center justify-center gap-3" onClick={startCamera}>
+                      <div className="bg-white/20 p-3 rounded-full"><Camera className="w-6 h-6" /></div>
+                      <span className="font-bold">Take Photo</span>
+                    </Button>
+                  </motion.div>
+                  <motion.label whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="h-32 glass border border-white/30 flex flex-col items-center justify-center gap-3 text-white shadow-md rounded-md cursor-pointer">
+                    <div className="bg-white/20 p-3 rounded-full"><Upload className="w-6 h-6" /></div>
+                    <span className="font-bold">Upload Photo</span>
                     <Input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-                  </Label>
+                  </motion.label>
                 </div>
               )}
               {isCameraOpen && (
-                <div className="space-y-4">
-                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg bg-black" />
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 glass p-4 rounded-xl border-white/20">
+                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg bg-black ring-1 ring-white/30" />
                   <div className="flex gap-4">
-                    <Button type="button" variant="destructive" onClick={stopCamera}>Cancel</Button>
-                    <Button type="button" onClick={capturePhoto} className="flex-1">Capture</Button>
+                    <Button type="button" variant="destructive" className="glass bg-red-500/20 border-red-500/40 hover:bg-red-500/40" onClick={stopCamera}>Cancel</Button>
+                    <Button type="button" className="flex-1 bg-white text-violet-900 font-bold hover:bg-white/90" onClick={capturePhoto}>Capture</Button>
                   </div>
-                </div>
+                </motion.div>
               )}
               {image && (
-                <div className="relative">
-                  <img src={image} alt="Evidence" className="w-full h-64 object-cover rounded-lg" />
-                  <Button type="button" variant="secondary" size="sm" className="absolute top-2 right-2" onClick={() => setImage(null)}>
-                    Retake
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="relative group">
+                  <img src={image} alt="Evidence" className="w-full h-64 object-cover rounded-xl shadow-lg ring-1 ring-white/20" />
+                  <Button type="button" variant="secondary" size="sm" className="absolute top-3 right-3 glass bg-black/40 hover:bg-black/60 border-white/20 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setImage(null)}>
+                    Retake Photo
                   </Button>
-                </div>
+                </motion.div>
               )}
+            </div>
+
+            {/* Step 2 — Description */}
+            <div className="space-y-3">
+              <Label className="text-white/90 text-lg font-bold drop-shadow-sm flex items-center gap-2">
+                <span className="bg-white/20 w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                Describe the Problem
+              </Label>
+              <p className="text-sm text-white/60 font-medium -mt-1">
+                Provide as much detail as you can — what you saw, when it started, and any safety concerns.
+              </p>
+              <Textarea
+                value={formData.description}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                placeholder="e.g. A deep pothole formed after last night's rain near the school gate. Bikes have been skidding since morning. It's about 2 feet wide..."
+                rows={5}
+                className="bg-black/20 border-white/20 text-white placeholder:text-white/30 font-medium resize-none focus-visible:ring-white/40 focus-visible:border-white/40 transition-all"
+              />
+              <p className="text-xs text-white/40 text-right">{formData.description.length} characters</p>
             </div>
 
             {isAnalyzing && (
-              <div className="bg-violet-50 border border-violet-200 p-4 rounded-lg flex items-center gap-3 text-violet-700 font-medium">
-                <Sparkles className="w-5 h-5 animate-pulse" />
-                AI is analyzing your image and categorizing the issue...
-              </div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass bg-violet-500/20 border-violet-500/40 p-6 rounded-xl flex items-center gap-4 text-white shadow-lg backdrop-blur-md">
+                <div className="bg-white/20 p-3 rounded-full"><Sparkles className="w-6 h-6 animate-pulse" /></div>
+                <span className="font-bold text-lg">AI is analyzing your image and categorizing the issue...</span>
+              </motion.div>
             )}
 
+            {/* Step 3 — AI Results (only shown after analysis) */}
             {formData.category && !isAnalyzing && (
-              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg space-y-4">
-                <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2">
-                  <CheckCircle2 className="w-5 h-5" /> AI Validated Classification
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass bg-emerald-500/20 border-emerald-500/40 p-6 rounded-xl space-y-6 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-3 text-white font-extrabold text-xl mb-2 drop-shadow-md">
+                  <div className="bg-emerald-400/40 p-2 rounded-full"><CheckCircle2 className="w-6 h-6" /></div>
+                  <div>
+                    <p>AI Validated Details</p>
+                    <p className="text-xs font-normal text-white/60 mt-0.5">Auto-filled from your photo · step 3 is complete</p>
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase font-bold">Category</Label>
-                    <Input readOnly value={formData.category} className="bg-white" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-xs font-bold uppercase tracking-widest">Category</Label>
+                    <Input readOnly value={formData.category} className="bg-black/20 border-white/20 text-white font-medium focus-visible:ring-0" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase font-bold">Department</Label>
-                    <Input readOnly value={formData.department} className="bg-white" />
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-xs font-bold uppercase tracking-widest">Department</Label>
+                    <Input readOnly value={formData.department} className="bg-black/20 border-white/20 text-white font-medium focus-visible:ring-0" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase font-bold">Severity</Label>
-                    <Input readOnly value={formData.severity} className="bg-white" />
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-xs font-bold uppercase tracking-widest">Severity</Label>
+                    <Input readOnly value={formData.severity} className="bg-black/20 border-white/20 text-white font-medium focus-visible:ring-0" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-emerald-800 text-xs uppercase font-bold">Location</Label>
-                    <div className="flex items-center gap-2 bg-white border px-3 py-2 rounded-md h-10 text-sm">
-                      <MapPin className="w-4 h-4 text-emerald-600" />
-                      {location.lat !== 0 ? 'Captured via GPS' : 'Pending GPS'}
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-xs font-bold uppercase tracking-widest">Location</Label>
+                    <div className="flex items-center gap-2 bg-black/20 border border-white/20 px-3 py-2 rounded-md h-10 text-sm font-medium text-white">
+                      <MapPin className="w-4 h-4 opacity-70" />
+                      {location.lat !== 0 ? 'Captured successfully' : 'Pending...'}
                     </div>
                   </div>
                 </div>
-
-                <div className="space-y-1">
-                  <Label className="text-emerald-800 text-xs uppercase font-bold">AI Summary</Label>
-                  <Textarea readOnly value={formData.summary} className="bg-white resize-none" />
-                </div>
-              </div>
+              </motion.div>
             )}
 
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <Label className="text-base font-bold text-slate-800">2. Detailed Description & Additional Context</Label>
-              <p className="text-xs text-slate-500">Add any additional details (e.g. specific landmarks, exact spot, risk factors, or duration of the problem).</p>
-              <Textarea 
-                rows={4}
-                placeholder="e.g. Electric wire snapped near municipal school gate #2. Posing live hazard to children passing by..."
-                value={formData.detailedDescription}
-                onChange={e => setFormData({ ...formData, detailedDescription: e.target.value })}
-                className="bg-white"
-              />
-            </div>
-
-            <Button type="submit" disabled={!image || isAnalyzing} className="w-full h-12 text-lg bg-violet-600 hover:bg-violet-700 text-white font-bold">
-              Submit Complaint
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button type="submit" disabled={!image || isAnalyzing} className="w-full h-14 text-lg bg-white text-violet-900 font-extrabold shadow-2xl rounded-xl">
+                {isAnalyzing ? 'Analyzing...' : 'Submit Complaint'}
+              </Button>
+            </motion.div>
           </form>
         </Card>
-      </div>
+      </motion.div>
     </div>
   );
 }

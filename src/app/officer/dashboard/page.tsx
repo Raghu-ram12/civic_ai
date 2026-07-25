@@ -5,363 +5,498 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ShieldCheck, AlertTriangle, CheckCircle2, Search, MapPin } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, Zap, MapPin, Layers, BarChart2, TrendingUp } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, RadialBarChart, RadialBar
+} from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-const MapWidget = dynamic(() => import('@/components/Map'), { ssr: false, loading: () => <div className="h-[400px] bg-slate-100 animate-pulse rounded-xl" /> });
-const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const MapWidget = dynamic(() => import('@/components/Map'), {
+  ssr: false,
+  loading: () => <div className="h-[400px] glass animate-pulse rounded-xl" />,
+});
+
+// ── Colour palette ──────────────────────────────────────────────────────────
+const DEPT_COLORS: Record<string, string> = {
+  'Electrical & Power Services':      '#facc15',
+  'Roads & Traffic Infrastructure':   '#fb923c',
+  'Water Supply & Drainage':          '#38bdf8',
+  'Sanitation & Waste Management':    '#4ade80',
+  'Parks & Horticulture':             '#a78bfa',
+  'Public Health & Disease Control':  '#f472b6',
+  General:                            '#94a3b8',
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  Critical: '#ef4444',
+  High:     '#f97316',
+  Medium:   '#facc15',
+  Low:      '#34d399',
+};
+
+const STATUS_META: Record<string, { color: string; icon: string }> = {
+  'Submitted':    { color: '#64748b', icon: '📥' },
+  'AI Validated': { color: '#818cf8', icon: '🤖' },
+  'Assigned':     { color: '#38bdf8', icon: '👷' },
+  'In Progress':  { color: '#fb923c', icon: '🔧' },
+  'Resolved':     { color: '#34d399', icon: '✅' },
+  'Rejected':     { color: '#f87171', icon: '❌' },
+};
+
+const FILTER_OPTIONS = ['All', 'By Department', 'Critical Only', 'Deadlines / Priority', 'AI Validated', 'In Progress', 'Resolved'];
+
+// ── Tiny legend pill ────────────────────────────────────────────────────────
+function Pill({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-white font-bold">
+      <span className="w-3 h-3 rounded-full shrink-0 ring-1 ring-white/20" style={{ background: color }} />
+      {label}
+    </span>
+  );
+}
+
+// ── Custom tooltip ───────────────────────────────────────────────────────────
+const GlassTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: 'rgba(6,3,20,0.95)', border: '1px solid rgba(255,255,255,0.25)' }}
+      className="px-4 py-3 rounded-xl text-xs text-white shadow-2xl">
+      <p className="font-extrabold text-white mb-1.5 text-sm">{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.dataKey} className="flex items-center gap-2 font-bold" style={{ color: p.fill || p.color }}>
+          <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.fill || p.color }} />
+          {p.name ?? p.dataKey}: <span className="text-white ml-1">{p.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+};
 
 export default function OfficerDashboard() {
   const { complaints, role, updateComplaint, logout } = useMockDb();
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [priorityFilter, setPriorityFilter] = useState('All');
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  
+  const { toast } = useToast();
+  const [filter, setFilter] = useState('All');
+  const [deptFilter, setDeptFilter] = useState<string | null>(null);
+
   useEffect(() => {
-    if (role !== 'officer') router.push('/officer/login');
+    if (role !== 'officer') router.push('/');
   }, [role, router]);
 
   if (role !== 'officer') return null;
 
-  // Helper to determine priority score (Urgent hazards like broken electric wires score highest)
-  const getPriorityScore = (c: Complaint) => {
-    const cat = (c.category || '').toLowerCase();
-    if (cat.includes('wire') || cat.includes('electric') || c.severity === 'Critical') return 4;
-    if (cat.includes('pothole') || c.severity === 'High') return 3;
-    if (c.severity === 'Medium') return 2;
-    return 1;
+  // ── Derived counts ─────────────────────────────────────────────────────
+  const total        = complaints.length;
+  const resolved     = complaints.filter(c => c.status === 'Resolved').length;
+  const open         = total - resolved;
+  const criticalHigh = complaints.filter(c => c.severity === 'Critical' || c.severity === 'High').length;
+  const inProgress   = complaints.filter(c => c.status === 'In Progress').length;
+
+  // ── Auto-categorisation by department ─────────────────────────────────
+  const deptMap = complaints.reduce((acc, c) => {
+    const dept = c.department || 'General';
+    if (!acc[dept]) acc[dept] = [];
+    acc[dept].push(c);
+    return acc;
+  }, {} as Record<string, Complaint[]>);
+
+  const deptChartData = Object.entries(deptMap).map(([name, items]) => ({
+    name: name.split(' ')[0],           // short label
+    fullName: name,
+    total: items.length,
+    resolved: items.filter(c => c.status === 'Resolved').length,
+    open: items.filter(c => c.status !== 'Resolved').length,
+    critical: items.filter(c => c.severity === 'Critical' || c.severity === 'High').length,
+  }));
+
+  // ── Severity distribution ──────────────────────────────────────────────
+  const severityData = (['Critical', 'High', 'Medium', 'Low'] as const).map(sev => ({
+    name: sev,
+    value: complaints.filter(c => c.severity === sev).length,
+    fill: SEVERITY_COLORS[sev],
+  })).filter(d => d.value > 0);
+
+  // ── Status pipeline ────────────────────────────────────────────────────
+  const statusData = Object.keys(STATUS_META).map(s => ({
+    name: s,
+    value: complaints.filter(c => c.status === s).length,
+    ...STATUS_META[s],
+  })).filter(d => d.value > 0);
+
+  // ── Category auto-breakdown ────────────────────────────────────────────
+  const categoryData = complaints.reduce((acc, c) => {
+    const ex = acc.find(x => x.name === c.category);
+    if (ex) ex.count++;
+    else acc.push({ name: c.category, count: 1, dept: c.department });
+    return acc;
+  }, [] as { name: string; count: number; dept: string }[]).sort((a, b) => b.count - a.count);
+
+  // ── Visible complaints based on active filter ──────────────────────────
+  const getVisible = (): Complaint[] => {
+    if (filter === 'By Department' && deptFilter) {
+      return complaints.filter(c => c.department === deptFilter);
+    }
+    if (filter === 'By Department') {
+      return complaints;
+    }
+    if (filter === 'Critical Only') {
+      return complaints.filter(c => c.severity === 'Critical' || c.severity === 'High');
+    }
+    if (filter === 'Deadlines / Priority') {
+      const score = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+      return [...complaints]
+        .filter(c => c.status !== 'Resolved')
+        .sort((a, b) => (score[b.severity as keyof typeof score] || 0) - (score[a.severity as keyof typeof score] || 0));
+    }
+    if (filter === 'All') return complaints;
+    return complaints.filter(c => c.status === filter);
   };
 
-  // Filter complaints by status and priority deadline
-  const filtered = complaints.filter(c => {
-    const matchesStatus = statusFilter === 'All' || c.status === statusFilter;
-    let matchesPriority = true;
-    if (priorityFilter === 'Urgent Hazard') {
-      matchesPriority = c.severity === 'Critical' || (c.category || '').toLowerCase().includes('electric');
-    } else if (priorityFilter === 'High Priority') {
-      matchesPriority = c.severity === 'High' || (c.category || '').toLowerCase().includes('pothole');
-    } else if (priorityFilter === 'Normal Priority') {
-      matchesPriority = c.severity === 'Medium' || c.severity === 'Low';
-    }
-    return matchesStatus && matchesPriority;
-  });
+  const visible = getVisible();
 
-  // Always sort filtered list by priority deadline score (most urgent first)
-  const visible = [...filtered].sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+  const handleUpdateStatus = (id: string, status: Status) => {
+    updateComplaint(id, { status });
+    toast(`Complaint ${id} marked as ${status}`, 'success');
+  };
 
-  const openCount = complaints.filter(c => c.status !== 'Resolved').length;
-  const criticalCount = complaints.filter(c => c.severity === 'High' || c.severity === 'Critical' || (c.category || '').toLowerCase().includes('electric')).length;
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.07 } }),
+  };
 
-  const categoryData = complaints.reduce((acc, curr) => {
-    const existing = acc.find(x => x.name === curr.category);
-    if (existing) existing.count++;
-    else acc.push({ name: curr.category, count: 1 });
-    return acc;
-  }, [] as any[]);
-
-  const statusData = complaints.reduce((acc, curr) => {
-    const existing = acc.find(x => x.name === curr.status);
-    if (existing) existing.count++;
-    else acc.push({ name: curr.status, count: 1 });
-    return acc;
-  }, [] as any[]);
+  const rowVariants = {
+    hidden: { opacity: 0, x: -20 },
+    show: { opacity: 1, x: 0 },
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        <header className="flex justify-between items-center bg-emerald-700 text-white p-6 rounded-2xl shadow-lg">
+    <div className="min-h-screen text-white font-sans p-6 relative overflow-hidden">
+      <div className="absolute top-1/3 -right-1/4 w-[600px] h-[600px] bg-white/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-1/4 -left-1/4 w-[500px] h-[500px] bg-black/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-7xl mx-auto space-y-8 relative z-10"
+      >
+        {/* ── Header ── */}
+        <header className="glass flex flex-col md:flex-row justify-between items-start md:items-center p-6 rounded-3xl border-white/20 shadow-xl gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-white/20 p-3 rounded-xl"><ShieldCheck className="w-8 h-8" /></div>
+            <div className="bg-white/20 p-3 rounded-2xl ring-1 ring-white/30 backdrop-blur-sm">
+              <ShieldCheck className="w-8 h-8 drop-shadow-md" />
+            </div>
             <div>
-              <p className="text-sm font-bold tracking-wider text-emerald-200 uppercase">Civic Operations Centre</p>
-              <h1 className="text-2xl font-extrabold">Officer Dashboard</h1>
+              <p className="text-sm font-bold tracking-widest text-white/70 uppercase">Civic Operations Centre</p>
+              <h1 className="text-2xl md:text-3xl font-extrabold drop-shadow-md">Officer Dashboard</h1>
             </div>
           </div>
           <div className="flex gap-4">
-            <Link href="/officer/profile">
-              <Button variant="outline" className="font-bold text-emerald-100 bg-white/10 hover:bg-white/20 border-white/20">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button onClick={() => router.push('/officer/profile')} variant="outline" className="glass bg-white/10 hover:bg-white/20 border-white/30 font-bold shadow-md">
                 My Profile
               </Button>
-            </Link>
-            <Button variant="ghost" className="text-white hover:bg-white/20" onClick={() => { logout(); router.push('/'); }}>
-              Sign Out
-            </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button variant="ghost" className="glass bg-red-500/20 border-red-500/30 text-white hover:bg-red-500/40 hover:text-white shadow-md" onClick={() => { logout(); router.push('/'); }}>
+                Sign Out
+              </Button>
+            </motion.div>
           </div>
         </header>
 
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-5">
-            <p className="text-sm text-slate-500 font-semibold">Total Complaints</p>
-            <p className="text-3xl font-black text-slate-800">{complaints.length}</p>
-          </Card>
-          <Card className="p-5 border-l-4 border-l-orange-400">
-            <p className="text-sm text-slate-500 font-semibold">Awaiting Action</p>
-            <p className="text-3xl font-black text-slate-800">{openCount}</p>
-          </Card>
-          <Card className="p-5 border-l-4 border-l-emerald-400">
-            <p className="text-sm text-slate-500 font-semibold">Resolved</p>
-            <p className="text-3xl font-black text-slate-800">{complaints.length - openCount}</p>
-          </Card>
-          <Card className="p-5 border-l-4 border-l-red-500 bg-red-50">
-            <p className="text-sm text-red-700 font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Critical Hazards</p>
-            <p className="text-3xl font-black text-red-900">{criticalCount}</p>
-          </Card>
+        {/* ── KPI Cards ── */}
+        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {[
+            { label: 'Total Complaints', value: total,        icon: <Layers className="w-5 h-5" />,       border: 'border-l-4 border-l-white/60',    color: 'text-white' },
+            { label: 'Open / Awaiting',  value: open,         icon: <Clock className="w-5 h-5" />,        border: 'border-l-4 border-l-orange-400',  color: 'text-orange-300' },
+            { label: 'In Progress',      value: inProgress,   icon: <TrendingUp className="w-5 h-5" />,   border: 'border-l-4 border-l-sky-400',     color: 'text-sky-300' },
+            { label: 'Resolved',         value: resolved,     icon: <CheckCircle2 className="w-5 h-5" />, border: 'border-l-4 border-l-emerald-400', color: 'text-emerald-300' },
+            { label: 'Critical / High',  value: criticalHigh, icon: <AlertTriangle className="w-5 h-5" />, border: 'border-l-4 border-l-red-500',    color: 'text-red-300' },
+          ].map((s, i) => (
+            <motion.div key={i} custom={i} variants={cardVariants} initial="hidden" animate="show" whileHover={{ y: -4 }}>
+              <Card className={`glass-card p-5 border-white/20 shadow-lg ${s.border} hover:brightness-110 transition-all h-full`}>
+                <p className="text-xs font-bold uppercase tracking-widest text-white/80 flex items-center gap-1.5 mb-3">
+                  <span className={s.color}>{s.icon}</span> {s.label}
+                </p>
+                <p className={`text-4xl font-black drop-shadow-md ${s.color}`}>{s.value}</p>
+              </Card>
+            </motion.div>
+          ))}
         </section>
 
+        {/* ── Analytics Row ── */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="p-6 lg:col-span-2">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Issues by Category</h2>
-            <div className="h-[300px] w-full">
+
+          {/* Department Breakdown — stacked bar */}
+          <Card className="glass-card p-6 border-white/25 shadow-2xl lg:col-span-2">
+            <div className="flex items-center gap-2 mb-1">
+              <BarChart2 className="w-5 h-5 text-white" />
+              <h2 className="text-lg font-bold text-white">Complaints by Department</h2>
+            </div>
+            <p className="text-xs text-white/70 font-semibold mb-4">Auto-categorised from complaint data · click a bar to filter below</p>
+            <div className="flex flex-wrap gap-3 mb-4">
+              {Object.entries(DEPT_COLORS).map(([dept, color]) =>
+                deptChartData.find(d => d.fullName === dept) ? (
+                  <Pill key={dept} color={color} label={dept.split(' ')[0]} />
+                ) : null
+              )}
+            </div>
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={categoryData}>
-                  <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <BarChart data={deptChartData} barSize={28}
+                  onClick={(d: any) => {
+                    if (!d?.activePayload) return;
+                    const full = deptChartData.find(x => x.name === d.activeLabel)?.fullName ?? null;
+                    setFilter('By Department');
+                    setDeptFilter(prev => prev === full ? null : full);
+                  }}
+                >
+                  <XAxis dataKey="name" fontSize={12} fontWeight={700} tickLine={false} axisLine={false} stroke="rgba(255,255,255,0.9)" tick={{ fill: 'rgba(255,255,255,0.9)' }} />
+                  <YAxis allowDecimals={false} fontSize={12} fontWeight={700} tickLine={false} axisLine={false} stroke="rgba(255,255,255,0.6)" tick={{ fill: 'rgba(255,255,255,0.8)' }} />
+                  <Tooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(255,255,255,0.08)' }} />
+                  <Bar dataKey="open"     name="Open"     stackId="a" radius={[0,0,0,0]}>
+                    {deptChartData.map((d, i) => (
+                      <Cell key={i} fill={DEPT_COLORS[d.fullName] ?? '#94a3b8'} fillOpacity={0.9} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="resolved" name="Resolved"  stackId="a" radius={[6,6,0,0]}>
+                    {deptChartData.map((d, i) => (
+                      <Cell key={i} fill={DEPT_COLORS[d.fullName] ?? '#94a3b8'} fillOpacity={0.35} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            <p className="text-center text-xs text-white/60 font-semibold mt-2">Darker = open · lighter = resolved</p>
           </Card>
-          <Card className="p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Status Overview</h2>
-            <div className="h-[300px] w-full flex items-center justify-center">
+
+          {/* Severity Donut */}
+          <Card className="glass-card p-6 border-white/25 shadow-2xl flex flex-col">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="w-5 h-5 text-white" />
+              <h2 className="text-lg font-bold text-white">Severity Breakdown</h2>
+            </div>
+            <p className="text-xs text-white/70 font-semibold mb-4">Auto-classified by AI severity score</p>
+            <div className="flex-1 min-h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count">
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
+                  <Pie data={severityData} cx="50%" cy="50%" innerRadius={60} outerRadius={95}
+                    paddingAngle={4} dataKey="value" stroke="rgba(255,255,255,0.15)"
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: 'rgba(255,255,255,0.6)' }}
+                  >
+                    {severityData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Tooltip content={<GlassTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center mt-2">
+              {severityData.map(d => <Pill key={d.name} color={d.fill} label={`${d.name} (${d.value})`} />)}
             </div>
           </Card>
         </section>
 
+        {/* ── Status Pipeline ── */}
         <section>
-          <Card className="p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Live Incident Map</h2>
+          <Card className="glass-card p-6 border-white/25 shadow-2xl">
+            <h2 className="text-lg font-bold mb-4 text-white flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-white" /> Status Pipeline
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              {statusData.map(s => (
+                <motion.button
+                  key={s.name}
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={() => setFilter(s.name)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all font-bold text-sm text-white ${
+                    filter === s.name ? 'border-white/60 bg-white/20' : 'border-white/20 bg-white/8 hover:bg-white/15'
+                  }`}
+                >
+                  <span>{s.icon}</span>
+                  <span>{s.name}</span>
+                  <span className="ml-1 text-xs font-black px-2 py-0.5 rounded-full" style={{ background: s.color + '55', color: s.color }}>
+                    {s.value}
+                  </span>
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Category breakdown strip */}
+            <div className="mt-6">
+              <p className="text-xs text-white font-extrabold uppercase tracking-widest mb-4">Top Issue Categories (auto-categorised)</p>
+              <div className="space-y-3">
+                {categoryData.slice(0, 6).map(cat => {
+                  const pct = Math.round((cat.count / total) * 100);
+                  const color = DEPT_COLORS[cat.dept] ?? '#94a3b8';
+                  return (
+                    <div key={cat.name} className="flex items-center gap-3">
+                      <span className="text-sm text-white font-semibold w-52 truncate shrink-0">{cat.name}</span>
+                      <div className="flex-1 h-2.5 bg-white/15 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut' }}
+                          className="h-full rounded-full"
+                          style={{ background: color }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold text-white w-16 text-right">{cat.count} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+        </section>
+
+        {/* ── Map ── */}
+        <section>
+          <Card className="glass p-6 border-white/20 shadow-xl">
+            <h2 className="text-xl font-bold mb-6 drop-shadow-md">Live Incident Map</h2>
             <MapWidget complaints={visible} />
           </Card>
         </section>
 
-        <section className="space-y-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl border shadow-xs">
+        {/* ── Complaint List ── */}
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Manage Complaints</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Filter by status or priority deadline to prioritize high-risk hazards.</p>
+              <h2 className="text-2xl font-extrabold drop-shadow-md">Manage Complaints</h2>
+              {filter === 'By Department' && deptFilter && (
+                <p className="text-sm text-white/60 font-medium mt-1 flex items-center gap-2">
+                  Showing: <span className="font-bold text-white/90">{deptFilter}</span>
+                  <button onClick={() => setDeptFilter(null)} className="text-xs text-red-300 hover:text-red-100 underline">clear</button>
+                </p>
+              )}
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-                <span className="text-xs font-bold text-slate-600 px-2">Status:</span>
-                {['All', 'AI Validated', 'Assigned', 'In Progress', 'Resolved'].map(s => (
-                  <button 
-                    key={s} 
-                    onClick={() => setStatusFilter(s)}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                      statusFilter === s ? 'bg-emerald-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                    }`}
+            <div className="flex flex-wrap gap-2">
+              {FILTER_OPTIONS.map(f => (
+                <motion.div key={f} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant={filter === f ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => { setFilter(f); if (f !== 'By Department') setDeptFilter(null); }}
+                    className={`transition-all text-xs ${filter === f ? 'bg-white text-violet-900 shadow-lg' : 'glass bg-white/10 hover:bg-white/20 border-white/30 text-white'}`}
                   >
-                    {s}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 p-1 rounded-lg">
-                <span className="text-xs font-bold text-amber-800 px-2 flex items-center gap-1">⚡ Deadline Priority:</span>
-                {[
-                  { label: 'All', value: 'All' },
-                  { label: '🔥 Urgent (24h)', value: 'Urgent Hazard' },
-                  { label: '⚠️ High (48h)', value: 'High Priority' },
-                  { label: '🛠️ Normal (72h)', value: 'Normal Priority' },
-                ].map(p => (
-                  <button 
-                    key={p.value} 
-                    onClick={() => setPriorityFilter(p.value)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
-                      priorityFilter === p.value ? 'bg-amber-600 text-white shadow-xs' : 'text-amber-900 hover:bg-amber-100'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+                    {f}
+                  </Button>
+                </motion.div>
+              ))}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 divide-y">
+          {/* Department quick-select pills (shown when By Department is active) */}
+          <AnimatePresence>
+            {filter === 'By Department' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex flex-wrap gap-2 overflow-hidden"
+              >
+                {Object.keys(deptMap).map(dept => (
+                  <motion.button
+                    key={dept}
+                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                    onClick={() => setDeptFilter(prev => prev === dept ? null : dept)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${deptFilter === dept ? 'border-white/60 bg-white/20' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: DEPT_COLORS[dept] ?? '#94a3b8' }} />
+                    {dept}
+                    <span className="ml-1 opacity-70">({deptMap[dept].length})</span>
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.div
+            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.07 } } }}
+            initial="hidden"
+            animate="show"
+            className="glass rounded-2xl border-white/20 shadow-xl divide-y divide-white/10 overflow-hidden"
+          >
             {visible.map(c => {
-              const isUrgent = c.severity === 'Critical' || (c.category || '').toLowerCase().includes('electric');
+              const deptColor = DEPT_COLORS[c.department] ?? '#94a3b8';
+              const sevColor  = SEVERITY_COLORS[c.severity] ?? '#94a3b8';
               return (
-                <div key={c.id} className={`p-5 flex flex-col sm:flex-row gap-6 items-start sm:items-center ${
-                  isUrgent ? 'bg-red-50/40 border-l-4 border-l-red-500' : ''
-                }`}>
+                <motion.div variants={rowVariants} key={c.id}
+                  className="p-5 flex flex-col sm:flex-row gap-5 items-start sm:items-center hover:bg-white/5 transition-colors"
+                >
+                  {/* Left: image or placeholder */}
                   {c.image ? (
-                    <img src={c.image} className="w-32 h-24 object-cover rounded-lg flex-shrink-0" />
+                    <img src={c.image} className="w-28 h-20 object-cover rounded-xl shadow-md shrink-0" />
                   ) : (
-                    <div className="w-32 h-24 bg-slate-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">📌</div>
+                    <div className="w-28 h-20 bg-black/20 rounded-xl flex items-center justify-center text-3xl shadow-inner ring-1 ring-white/10 shrink-0">📌</div>
                   )}
-                  
-                  <div className="flex-1 space-y-2">
+
+                  {/* Middle: content */}
+                  <div className="flex-1 space-y-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-slate-500 text-xs">{c.id}</span>
-                      <span className={`text-xs font-extrabold px-2.5 py-1 rounded-md ${
-                        isUrgent ? 'bg-red-600 text-white animate-pulse' :
-                        c.severity === 'High' ? 'bg-orange-100 text-orange-800 border border-orange-200' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {c.severity} Priority
+                      <span className="font-black text-white/50 text-xs uppercase tracking-widest bg-black/20 px-2 py-0.5 rounded-md">{c.id}</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md ring-1" style={{ background: sevColor + '22', color: sevColor, borderColor: sevColor + '55' }}>
+                        {c.severity}
                       </span>
-                      <span className="text-xs font-bold px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        ⚡ Est Deadline: {c.estimatedTime || (isUrgent ? '24 Hours (Urgent)' : '48 Hours')}
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md ring-1" style={{ background: deptColor + '22', color: deptColor, borderColor: deptColor + '55' }}>
+                        {c.department}
                       </span>
-                      <span className="text-xs font-bold px-2 py-1 rounded-md bg-violet-50 text-violet-700">{c.department}</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/10 text-white/70 ring-1 ring-white/20">
+                        {STATUS_META[c.status]?.icon} {c.status}
+                      </span>
                     </div>
-                    <h3 className="font-bold text-lg text-slate-900">{c.title}</h3>
-                    <p className="text-sm text-slate-600 line-clamp-1">{c.summary}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {c.location}</p>
+                    <h3 className="font-bold text-lg drop-shadow-sm truncate">{c.title}</h3>
+                    <p className="text-sm text-white/60 flex items-center gap-1 font-medium">
+                      <MapPin className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                      <span className="truncate">{c.location}</span>
+                    </p>
+                    <p className="text-xs text-white/40 font-medium">{c.category}</p>
                   </div>
-                  
-                  <div className="flex flex-col gap-2 min-w-[150px]">
-                    <span className="text-xs font-bold text-slate-400 uppercase text-center block mb-1">Status: {c.status}</span>
+
+                  {/* Right: actions */}
+                  <div className="flex flex-col gap-2 min-w-[148px] shrink-0">
                     {c.status === 'AI Validated' && (
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => updateComplaint(c.id, { status: 'Assigned' })}>Assign Team</Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button size="sm" className="w-full bg-sky-500/30 hover:bg-sky-500/50 border border-sky-400/30 shadow-md transition-all text-white" onClick={() => handleUpdateStatus(c.id, 'Assigned')}>
+                          Assign Team
+                        </Button>
+                      </motion.div>
                     )}
                     {c.status === 'Assigned' && (
-                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => updateComplaint(c.id, { status: 'In Progress' })}>Start Work</Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button size="sm" className="w-full bg-orange-500/30 hover:bg-orange-500/50 border border-orange-400/30 shadow-md transition-all text-white" onClick={() => handleUpdateStatus(c.id, 'In Progress')}>
+                          Start Work
+                        </Button>
+                      </motion.div>
                     )}
                     {c.status === 'In Progress' && (
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 font-bold" onClick={() => updateComplaint(c.id, { status: 'Resolved' })}>Mark Resolved</Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button size="sm" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg transition-all" onClick={() => handleUpdateStatus(c.id, 'Resolved')}>
+                          Mark Resolved
+                        </Button>
+                      </motion.div>
                     )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setSelectedComplaint(c)}
-                      className="border-slate-300 hover:bg-slate-100 font-bold text-slate-700"
-                    >
-                      View Details
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button variant="outline" size="sm" className="w-full glass hover:bg-white/10 border-white/30 transition-all text-white" onClick={() => router.push(`/track?id=${c.id}`)}>
+                        View Details
+                      </Button>
+                    </motion.div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
             {visible.length === 0 && (
-              <div className="p-12 text-center text-slate-500">No complaints match the selected status or priority filter.</div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-12 text-center text-white/50 font-medium">
+                No complaints match this filter.
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </section>
-
-      </div>
-
-      {/* View Details Modal */}
-      {selectedComplaint && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
-            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-extrabold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
-                  {selectedComplaint.id}
-                </span>
-                <h3 className="font-extrabold text-xl text-slate-800">{selectedComplaint.title}</h3>
-              </div>
-              <button 
-                onClick={() => setSelectedComplaint(null)} 
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {selectedComplaint.image ? (
-                <img src={selectedComplaint.image} alt="Complaint Evidence" className="w-full h-64 object-cover rounded-xl border border-slate-200 shadow-xs" />
-              ) : (
-                <div className="w-full h-40 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 font-medium">No Image Provided</div>
-              )}
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div>
-                  <span className="text-xs text-slate-400 font-bold uppercase block">Category</span>
-                  <span className="font-bold text-slate-800 text-sm">{selectedComplaint.category}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-400 font-bold uppercase block">Severity</span>
-                  <span className={`font-bold text-sm ${selectedComplaint.severity === 'Critical' ? 'text-red-600' : 'text-slate-800'}`}>
-                    {selectedComplaint.severity}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-400 font-bold uppercase block">Department</span>
-                  <span className="font-bold text-slate-800 text-sm">{selectedComplaint.department}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-400 font-bold uppercase block">Est Deadline</span>
-                  <span className="font-bold text-amber-700 text-sm">
-                    {selectedComplaint.estimatedTime || '48 Hours'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Location</h4>
-                <p className="text-slate-700 flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
-                  <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  {selectedComplaint.location}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">AI Issue Summary</h4>
-                <p className="text-slate-700 bg-slate-50 p-3.5 rounded-lg border border-slate-100 text-sm">
-                  {selectedComplaint.summary}
-                </p>
-              </div>
-
-              {selectedComplaint.detailedDescription && (
-                <div className="space-y-2">
-                  <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Citizen Detailed Description</h4>
-                  <p className="text-slate-800 bg-emerald-50/60 p-4 rounded-lg border border-emerald-100 text-sm whitespace-pre-wrap">
-                    {selectedComplaint.detailedDescription}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center pt-2 text-xs text-slate-500 border-t">
-                <span>Reported by: <b>{selectedComplaint.citizen}</b></span>
-                <span>Date: <b>{selectedComplaint.createdAt}</b></span>
-              </div>
-            </div>
-
-            <div className="p-6 bg-slate-50 border-t flex flex-wrap justify-between items-center gap-4 rounded-b-2xl">
-              <span className="text-sm font-bold text-slate-600">Current Status: <b className="text-slate-900">{selectedComplaint.status}</b></span>
-              <div className="flex gap-2">
-                {selectedComplaint.status !== 'Resolved' && (
-                  <Button 
-                    size="sm" 
-                    className="bg-emerald-600 hover:bg-emerald-700 font-bold"
-                    onClick={() => {
-                      updateComplaint(selectedComplaint.id, { status: 'Resolved' });
-                      setSelectedComplaint({ ...selectedComplaint, status: 'Resolved' });
-                    }}
-                  >
-                    Mark as Resolved
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={() => setSelectedComplaint(null)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      </motion.div>
     </div>
   );
 }

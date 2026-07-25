@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 
-export default function CitizenDashboard() {
+export default function CityDashboard() {
   const { complaints, role, logout, currentUser } = useMockDb();
   const router = useRouter();
   
@@ -24,7 +24,7 @@ export default function CitizenDashboard() {
 
   if (role !== 'citizen') return null;
 
-  const myComplaints = complaints.filter(c => currentUser && (c.citizenId === currentUser.id || c.citizen === currentUser.name));
+  const myComplaints = complaints;
   const resolvedCount = myComplaints.filter(c => c.status === 'Resolved').length;
   const pendingCount = myComplaints.filter(c => c.status !== 'Resolved').length;
 
@@ -56,14 +56,14 @@ export default function CitizenDashboard() {
       >
         <header className="glass flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-6 rounded-3xl border-white/20 shadow-xl">
           <div>
-            <p className="text-sm font-bold tracking-widest text-white/70 uppercase">Citizen Dashboard</p>
-            <h1 className="text-3xl font-extrabold text-white drop-shadow-md">Welcome back, Citizen</h1>
+            <p className="text-sm font-bold tracking-widest text-white/70 uppercase">City Dashboard</p>
+            <h1 className="text-3xl font-extrabold text-white drop-shadow-md">City-wide Complaints</h1>
           </div>
           <div className="flex flex-wrap gap-3">
             
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button onClick={() => router.push('/city-dashboard')} className="glass bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 font-bold gap-2 shadow-lg h-10 px-4">
-                City Dashboard
+              <Button onClick={() => router.push('/dashboard')} className="glass bg-emerald-500/20 hover:bg-emerald-500/40 border-emerald-500/30 font-bold gap-2 shadow-lg h-10 px-4">
+                My Dashboard
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

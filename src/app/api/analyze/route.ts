@@ -15,12 +15,14 @@ export async function POST(request: Request) {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `Analyze this civic issue image and return a JSON object with the following fields:
-    - category (String: Broken Live Electric Wire, Deep Pothole / Damaged Road, Open Manhole / Missing Cover, Uncollected Garbage & Illegal Dumping, Streetlight Outage / Dark Alley, Sewerage Overflow / Pipeline Leakage, Fallen Tree / Danger Branch, Waterlogging & Mosquito Breeding, Traffic Signal Fault, Footpath Encroachment, Fire & Emergency Hazard, or Other)
+    - isSpam (Boolean: true if the image is NOT a civic issue, or just a random photo like a selfie, blank wall, etc.)
+    - category (String: Broken Live Electric Wire, Deep Pothole / Damaged Road, Open Manhole / Missing Cover, Uncollected Garbage & Illegal Dumping, Streetlight Outage / Dark Alley, Sewerage Overflow / Pipeline Leakage, Fallen Tree / Danger Branch, Waterlogging & Mosquito Breeding, Traffic Signal Fault, Footpath Encroachment, Fire & Emergency Hazard, Illegal Parking, Public Property Damage, Dead Animal, Noise Pollution, Stray Animal Menace, Spam, or Other)
     - severity (String: Low, Medium, High, Critical)
     - summary (String: One-line short description of the issue)
-    - department (String: Electrical & Power Services, Roads & Traffic Infrastructure, Water Supply & Drainage, Sanitation & Waste Management, Public Health & Disease Control, Parks & Horticulture, Building Enforcement & Planning, Fire & Emergency Hazards, General Municipal Services)
+    - department (String: Electrical & Power Services, Roads & Traffic Infrastructure, Water Supply & Drainage, Sanitation & Waste Management, Public Health & Disease Control, Parks & Horticulture, Building Enforcement & Planning, Fire & Emergency Hazards, General Municipal Services, Animal Control, Traffic Police, Environmental Control)
     - confidence (Number: 0-100)
     
+    If isSpam is true, set category to "Spam" and severity to "Low".
     Only return raw JSON format without markdown ticks or other text.`;
 
     const result = await model.generateContent([
