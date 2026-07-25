@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,9 +26,13 @@ export default function OfficerLogin() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <Card className="max-w-md w-full p-8 shadow-xl border-0 ring-1 ring-slate-200">
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-emerald-600 p-3 rounded-xl mb-4 shadow-lg shadow-emerald-200">
+      <div className="w-full max-w-md space-y-4">
+        <Link href="/" className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2">
+          &larr; Back to Home
+        </Link>
+        <Card className="w-full p-8 shadow-xl border-0 ring-1 ring-slate-200">
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-emerald-600 p-3 rounded-xl mb-4 shadow-lg shadow-emerald-200">
             <ShieldCheck className="text-white w-8 h-8" />
           </div>
           <h2 className="text-2xl font-extrabold text-slate-800">Officer Portal</h2>

@@ -88,7 +88,7 @@ export default function OfficerDashboard() {
                     }`}>
                       {c.severity} Priority
                     </span>
-                    <span className="text-xs font-bold px-2 py-1 rounded-md bg-blue-50 text-blue-700">{c.department}</span>
+                    <span className="text-xs font-bold px-2 py-1 rounded-md bg-violet-50 text-violet-700">{c.department}</span>
                   </div>
                   <h3 className="font-bold text-lg">{c.title}</h3>
                   <p className="text-sm text-slate-500 flex items-center gap-1"><MapPin className="w-4 h-4" /> {c.location}</p>

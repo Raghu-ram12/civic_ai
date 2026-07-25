@@ -28,11 +28,11 @@ export default function CitizenDashboard() {
         
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <p className="text-sm font-bold tracking-wider text-blue-600 uppercase">Citizen Dashboard</p>
+            <p className="text-sm font-bold tracking-wider text-violet-600 uppercase">Citizen Dashboard</p>
             <h1 className="text-3xl font-extrabold text-slate-800">Welcome back, Citizen</h1>
           </div>
           <Link href="/report">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
+            <Button className="bg-violet-600 hover:bg-violet-700 text-white font-bold gap-2">
               <Plus className="w-5 h-5" /> Report Issue
             </Button>
           </Link>
@@ -80,7 +80,7 @@ export default function CitizenDashboard() {
                       <span className="text-xs font-bold text-slate-400 uppercase">{c.id}</span>
                       <span className={`text-xs font-bold px-2 py-1 rounded-md ${
                         c.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700' :
-                        c.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                        c.status === 'In Progress' ? 'bg-violet-100 text-violet-700' :
                         'bg-orange-100 text-orange-700'
                       }`}>
                         {c.status}

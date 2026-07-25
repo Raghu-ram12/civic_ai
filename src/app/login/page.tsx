@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,9 +26,13 @@ export default function CitizenLogin() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <Card className="max-w-md w-full p-8 shadow-xl border-0 ring-1 ring-slate-200">
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-blue-600 p-3 rounded-xl mb-4 shadow-lg shadow-blue-200">
+      <div className="w-full max-w-md space-y-4">
+        <Link href="/" className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2">
+          &larr; Back to Home
+        </Link>
+        <Card className="w-full p-8 shadow-xl border-0 ring-1 ring-slate-200">
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-violet-600 p-3 rounded-xl mb-4 shadow-lg shadow-violet-200">
             <Activity className="text-white w-8 h-8" />
           </div>
           <h2 className="text-2xl font-extrabold text-slate-800">Citizen Portal</h2>
@@ -43,7 +48,7 @@ export default function CitizenLogin() {
             <Label>Password</Label>
             <Input type="password" required defaultValue="password123" className="h-12" />
           </div>
-          <Button type="submit" disabled={loading} className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700">
+          <Button type="submit" disabled={loading} className="w-full h-12 text-lg bg-violet-600 hover:bg-violet-700">
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>

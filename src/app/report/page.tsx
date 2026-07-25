@@ -159,11 +159,11 @@ export default function ReportComplaint() {
               {!image && !isCameraOpen && (
                 <div className="grid grid-cols-2 gap-4">
                   <Button type="button" variant="outline" className="h-24 flex flex-col items-center justify-center gap-2" onClick={startCamera}>
-                    <Camera className="w-6 h-6 text-blue-600" />
+                    <Camera className="w-6 h-6 text-violet-600" />
                     <span>Take Photo</span>
                   </Button>
                   <Label className="h-24 flex flex-col items-center justify-center gap-2 border rounded-md cursor-pointer hover:bg-slate-50">
-                    <Upload className="w-6 h-6 text-blue-600" />
+                    <Upload className="w-6 h-6 text-violet-600" />
                     <span>Upload Photo</span>
                     <Input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                   </Label>
@@ -189,7 +189,7 @@ export default function ReportComplaint() {
             </div>
 
             {isAnalyzing && (
-              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-center gap-3 text-blue-700 font-medium">
+              <div className="bg-violet-50 border border-violet-200 p-4 rounded-lg flex items-center gap-3 text-violet-700 font-medium">
                 <Sparkles className="w-5 h-5 animate-pulse" />
                 AI is analyzing your image and categorizing the issue...
               </div>
@@ -230,7 +230,7 @@ export default function ReportComplaint() {
               </div>
             )}
 
-            <Button type="submit" disabled={!image || isAnalyzing} className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 text-white font-bold">
+            <Button type="submit" disabled={!image || isAnalyzing} className="w-full h-12 text-lg bg-violet-600 hover:bg-violet-700 text-white font-bold">
               Submit Complaint
             </Button>
           </form>
