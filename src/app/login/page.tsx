@@ -53,6 +53,7 @@ export default function CitizenLogin() {
           </Button>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

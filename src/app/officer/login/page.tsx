@@ -53,6 +53,7 @@ export default function OfficerLogin() {
           </Button>
         </form>
       </Card>
+      </div>
     </div>
   );
 }
