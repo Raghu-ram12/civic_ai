@@ -4,17 +4,22 @@ import { useMockDb } from '@/context/MockDb';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { AlertCircle, CheckCircle2, Clock, Plus, MapPin } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Plus, MapPin, LogOut, UserCircle } from 'lucide-react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function CitizenDashboard() {
-  const { complaints, role } = useMockDb();
+  const { complaints, role, logout } = useMockDb();
   const router = useRouter();
   
   useEffect(() => {
     if (role !== 'citizen') router.push('/login');
   }, [role, router]);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   if (role !== 'citizen') return null;
 
@@ -31,11 +36,21 @@ export default function CitizenDashboard() {
             <p className="text-sm font-bold tracking-wider text-violet-600 uppercase">Citizen Dashboard</p>
             <h1 className="text-3xl font-extrabold text-slate-800">Welcome back, Citizen</h1>
           </div>
-          <Link href="/report">
-            <Button className="bg-violet-600 hover:bg-violet-700 text-white font-bold gap-2">
-              <Plus className="w-5 h-5" /> Report Issue
+          <div className="flex gap-4">
+            <Link href="/report">
+              <Button className="bg-violet-600 hover:bg-violet-700 text-white font-bold gap-2">
+                <Plus className="w-5 h-5" /> Report Issue
+              </Button>
+            </Link>
+            <Link href="/profile">
+              <Button variant="outline" className="font-bold text-violet-600 bg-white hover:bg-violet-50 border-violet-200">
+                <UserCircle className="w-5 h-5 mr-2" /> Profile
+              </Button>
+            </Link>
+            <Button variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>
-          </Link>
+          </div>
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">

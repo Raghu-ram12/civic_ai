@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ShieldCheck, AlertTriangle, CheckCircle2, Search, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import dynamic from 'next/dynamic';
@@ -14,7 +15,7 @@ const MapWidget = dynamic(() => import('@/components/Map'), { ssr: false, loadin
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function OfficerDashboard() {
-  const { complaints, role, updateComplaint } = useMockDb();
+  const { complaints, role, updateComplaint, logout } = useMockDb();
   const router = useRouter();
   const [filter, setFilter] = useState('All');
   
@@ -54,9 +55,16 @@ export default function OfficerDashboard() {
               <h1 className="text-2xl font-extrabold">Officer Dashboard</h1>
             </div>
           </div>
-          <Button variant="ghost" className="text-white hover:bg-white/20" onClick={() => router.push('/')}>
-            Sign Out
-          </Button>
+          <div className="flex gap-4">
+            <Link href="/officer/profile">
+              <Button variant="outline" className="font-bold text-emerald-100 bg-white/10 hover:bg-white/20 border-white/20">
+                My Profile
+              </Button>
+            </Link>
+            <Button variant="ghost" className="text-white hover:bg-white/20" onClick={() => { logout(); router.push('/'); }}>
+              Sign Out
+            </Button>
+          </div>
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">

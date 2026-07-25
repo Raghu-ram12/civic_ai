@@ -14,14 +14,23 @@ export default function OfficerLogin() {
   const router = useRouter();
   const { login } = useMockDb();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     setTimeout(() => {
-      login('officer');
-      router.push('/officer/dashboard');
-    }, 600);
+      const success = login(email, password, 'officer');
+      if (success) {
+        router.push('/officer/dashboard');
+      } else {
+        setError('Invalid official email or password.');
+        setLoading(false);
+      }
+    }, 1000);
   };
 
   return (
@@ -39,19 +48,25 @@ export default function OfficerLogin() {
           <p className="text-slate-500 text-sm mt-1">Authorized municipal personnel only</p>
         </div>
         
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm font-bold mb-4">{error}</div>}
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label>Employee ID</Label>
-            <Input type="text" required placeholder="EMP-1234" defaultValue="EMP-1234" className="h-12" />
+            <Label>Official Email</Label>
+            <Input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="h-12" placeholder="officer@smartcivic.gov" />
           </div>
           <div className="space-y-2">
             <Label>Password</Label>
-            <Input type="password" required defaultValue="password123" className="h-12" />
+            <Input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="h-12" />
           </div>
           <Button type="submit" disabled={loading} className="w-full h-12 text-lg bg-emerald-600 hover:bg-emerald-700">
-            {loading ? 'Authenticating...' : 'Sign In'}
+            {loading ? 'Authenticating...' : 'Secure Login'}
           </Button>
         </form>
+
+        <div className="mt-6 text-center text-sm text-slate-500">
+          Are you a new officer? <Link href="/officer/register" className="font-bold text-emerald-600 hover:underline">Register here</Link>
+        </div>
       </Card>
       </div>
     </div>

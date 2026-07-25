@@ -14,14 +14,23 @@ export default function CitizenLogin() {
   const router = useRouter();
   const { login } = useMockDb();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     setTimeout(() => {
-      login('citizen');
-      router.push('/dashboard');
-    }, 600);
+      const success = login(email, password, 'citizen');
+      if (success) {
+        router.push('/dashboard');
+      } else {
+        setError('Invalid email or password.');
+        setLoading(false);
+      }
+    }, 1000);
   };
 
   return (
@@ -39,19 +48,25 @@ export default function CitizenLogin() {
           <p className="text-slate-500 text-sm mt-1">Sign in to report and track issues</p>
         </div>
         
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm font-bold mb-4">{error}</div>}
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input type="email" required placeholder="citizen@example.com" defaultValue="citizen@example.com" className="h-12" />
+            <Input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="h-12" placeholder="citizen@example.com" />
           </div>
           <div className="space-y-2">
             <Label>Password</Label>
-            <Input type="password" required defaultValue="password123" className="h-12" />
+            <Input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="h-12" />
           </div>
           <Button type="submit" disabled={loading} className="w-full h-12 text-lg bg-violet-600 hover:bg-violet-700">
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
+
+        <div className="mt-6 text-center text-sm text-slate-500">
+          Don't have an account? <Link href="/register" className="font-bold text-violet-600 hover:underline">Sign up</Link>
+        </div>
       </Card>
       </div>
     </div>

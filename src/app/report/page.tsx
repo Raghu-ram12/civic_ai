@@ -12,7 +12,7 @@ import { useMockDb, Complaint } from '@/context/MockDb';
 
 export default function ReportComplaint() {
   const router = useRouter();
-  const { addComplaint, role } = useMockDb();
+  const { addComplaint, role, currentUser } = useMockDb();
   
   useEffect(() => {
     if (role !== 'citizen') {
@@ -143,8 +143,11 @@ export default function ReportComplaint() {
       department: formData.department || 'General',
       status: 'AI Validated',
       location: location.text || 'Location Unknown',
+      lat: location.lat || undefined,
+      lng: location.lng || undefined,
       createdAt: new Date().toLocaleString(),
-      citizen: 'Citizen User', // In real app, fetch from auth
+      citizen: currentUser ? currentUser.name : 'Citizen User',
+      citizenId: currentUser ? currentUser.id : undefined,
       image: image
     };
     addComplaint(newComplaint);

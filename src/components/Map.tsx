@@ -32,7 +32,12 @@ const getMockCoordinates = (locationText: string) => {
 
 export default function MapWidget({ complaints }: { complaints: Complaint[] }) {
   // If there are no complaints, fallback to center of Bangalore
-  const center = complaints.length > 0 ? getMockCoordinates(complaints[0].location) : [12.9716, 77.5946];
+  const getCenter = () => {
+    if (complaints.length === 0) return [12.9716, 77.5946];
+    const c = complaints[0];
+    return (c.lat && c.lng) ? [c.lat, c.lng] : getMockCoordinates(c.location);
+  };
+  const center = getCenter();
 
   return (
     <div className="h-[400px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm relative z-0">
@@ -42,9 +47,9 @@ export default function MapWidget({ complaints }: { complaints: Complaint[] }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {complaints.map((c) => {
-          const coords = getMockCoordinates(c.location);
+          const coords = (c.lat && c.lng) ? [c.lat, c.lng] : getMockCoordinates(c.location);
           return (
-            <Marker key={c.id} position={coords}>
+            <Marker key={c.id} position={coords as [number, number]}>
               <Popup>
                 <div className="font-sans">
                   <strong>{c.id}</strong><br/>
